@@ -1,0 +1,131 @@
+<!-- Vue -->
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<!-- UIkit CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/uikit@3.16.7/dist/css/uikit.min.css" />
+<!-- UIkit JS -->
+<script src="https://cdn.jsdelivr.net/npm/uikit@3.16.7/dist/js/uikit.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/uikit@3.16.7/dist/js/uikit-icons.min.js"></script>
+
+<div id="app">
+    <!-- Not logged -->
+    <div v-if="!token" class="uk-card uk-card-default uk-card-body uk-width-1-2@m"
+        style="margin: auto; margin-top: 50px">
+        <h3 class="uk-card-title">Login or create an account</h3>
+        <form>
+            <input placeholder="Pseudo" class="uk-input" type="text" v-model="form.pseudo">
+            <input placeholder="Password" class="uk-input" style="margin-top: 8px;" type="text" v-model="form.password">
+        </form>
+        <button class="uk-button uk-button-default" style="margin-right: 15px;" @click="register">Create</button>
+        <button class="uk-button uk-button-default" @click="login">Login</button>
+
+        <div v-if="error" class="uk-alert-danger" uk-alert>
+            <p>{{error}}</p>
+        </div>
+    </div>
+
+    <!-- Logged -->
+    <div v-else class="uk-card uk-card-default uk-card-body uk-width-1-2@m" style="margin: auto; margin-top: 50px">
+        <!-- <button class="uk-button uk-button-default" style="margin-right: 15px;" @click="getProfile">Get my profile</button> -->
+        <br />
+        <div v-if="profile">
+            <p>Welcome, {{profile.username}}!</p>
+            <p v-if="profile.username != 'admin'">As a regular user, you can't do anything for now</p>
+            <div v-else>
+                <textarea class="uk-textarea" v-model="code" cols="30" rows="10"></textarea>
+                <button class="uk-button uk-button-default" @click="execCode">Execute</button>
+                <p>{{execResponse}}</p>
+            </div>
+
+        </div>
+        <button class="uk-button uk-button-danger" @click="token = null">Logout</button>
+    </div>
+</div>
+
+<script>
+    const { createApp } = Vue
+
+    createApp({
+        data () {
+            return {
+                form: {
+                    pseudo: '',
+                    password: ''
+                },
+                token: null,
+                profile: null,
+                error: null,
+                code: '1+1',
+                execResponse: null
+            }
+        },
+        methods: {
+            async register () {
+                try {
+                    const rawResponse = await fetch('/auth/register', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(this.form)
+                    });
+                    const content = await rawResponse.json();
+                    if (!content.access_token) {
+                        this.error = content.message
+                    } else {
+                        this.token = content.access_token
+                        this.error = ''
+                        this.getProfile()
+                    }
+                } catch (error) {
+                    console.log(this.error);
+                }
+            },
+            async login () {
+                try {
+                    const rawResponse = await fetch('/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(this.form)
+                    });
+                    const content = await rawResponse.json();
+                    if (!content.access_token) {
+                        this.error = content.message
+                    } else {
+                        this.token = content.access_token
+                        this.error = ''
+                        this.getProfile()
+                    }
+                } catch (error) {
+                    this.error = error.message
+                }
+
+            },
+            async getProfile () {
+                const rawResponse = await fetch('/infos', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${this.token}`
+                    }
+                });
+                const content = await rawResponse.json();
+                this.profile = content
+            },
+            async execCode () {
+                const rawResponse = await fetch('/exec', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${this.token}`
+                    },
+                    body: JSON.stringify({ code: this.code })
+                });
+                this.execResponse = await rawResponse.json();
+            }
+        }
+    }).mount('#app')
+</script>
